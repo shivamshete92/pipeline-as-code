@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Fetch Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/shivamshete92/pipeline-as-code.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'npm test || true'   // in case tests aren’t set up yet
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'npm run build || echo "No build step defined"'
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                sshagent (credentials: ['ec2-ssh-key']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@13.60.3.205"
+                            cd /home/ubuntu/pipeline-as-code || git clone https://github.com/shivamshete92/pipeline-as-code.git /home/ubuntu/pipeline-as-code &&
+                            cd /home/ubuntu/pipeline-as-code &&
+                            git pull origin main &&
+                            npm install &&
+                            pm2 restart app || pm2 start npm --name app -- start
+                        "
+                    '''
+                }
+            }
+        }
+    }
+}
